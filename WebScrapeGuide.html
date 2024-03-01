@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <meta name="author" content="Chris Webber" />
+  <meta name="dcterms.date" content="2023-03-07" />
+  <title>A Beginner’s Guide to Web Scraping in Python</title>
+  <style>
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    ul.task-list{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+  </style>
+  <link rel="stylesheet" href="webscrape-styles.css" />
+  <!--[if lt IE 9]>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/html5shiv/3.7.3/html5shiv-printshiv.min.js"></script>
+  <![endif]-->
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">A Beginner’s Guide to Web Scraping in Python</h1>
+<p class="author">Chris Webber</p>
+<p class="date">2023-03-07</p>
+</header>
+<h2 id="introduction">Introduction</h2>
+<p>Web scraping is the process of extracting data from webpages. This
+process is commonly automated in order to facilitate repeated scrapes or
+bulk data collection. The Python programming language, with its
+extensive range of available libraries, proves itself a capable tool for
+creating automated web scrapes.</p>
+<p>In this guide, you will learn how to create a simple web scrape in
+Python. Intermediate knowledge of Python is assumed as well as
+familiarity with HTML, XPath, and your web browser’s developer tools.
+This guide will use Firefox for demonstration purposes, but the actions
+and terminology used should be similar to that of other browsers.</p>
+<p>The goals of this simple web scrape will be to:</p>
+<ol type="1">
+<li>Create a connection to Wikipedia’s homepage.</li>
+<li>Navigate to Wikimedia Commons.</li>
+<li>Extract the image link for the Picture of the Day.</li>
+<li>Extract the text of the Picture of the Day’s description.</li>
+</ol>
+<p>In order to keep the code simple, no error handling will be
+included.</p>
+<h2 id="information-gathering">Information Gathering</h2>
+<p>The first step in creating a web scrape is to gather information
+regarding the webpage and the path of navigation. A web scrape navigates
+webpages in a manner similar to how you would in a browser. Since one of
+our goals is to navigate to Wikimedia Commons from Wikipedia’s homepage,
+we need to find a way for the web scrape to locate the link to Wikimedia
+Commons. For this, we will use <a
+href="https://www.w3schools.com/xml/xpath_intro.asp">XPath</a>.</p>
+<p>To begin, visit <a
+href="https://en.wikipedia.org">https://en.wikipedia.org</a> in your web
+browser. The link to Wikimedia Commons is found near the bottom of the
+page, in the “Wikipedia’s sister projects” box. If we right-click on the
+link and choose the “Inspect” option, the browser’s developer console
+will appear with the link element highlighted in the Inspector tab.</p>
+<p><img src="./mediacommonslink-inspect.png" /></p>
+<p><img src="./devtools-wikihome.png" /></p>
+<p>With this view, we can see the hierarchy of elements leading to the
+Wikimedia Commons link element. We can use this to build our XPath query
+that will locate this link. Since the Wikimedia Commons link is found
+within the ul element with ID “sister-projects-list”, we can specify the
+XPath query as:</p>
+<pre><code>//ul[@id = &#39;sister-projects-list&#39;]/li/div/span/a[contains(text(), &#39;Commons&#39;)]</code></pre>
+<p>Our next two goals are to locate the Picture of the Day’s image link
+and description text on the Wikimedia Commons homepage. If we navigate
+to Wikimedia Commons (<a
+href="https://commons.wikimedia.org">https://commons.wikimedia.org</a>),
+we can use the same process to inspect the elements of the Picture of
+the Day. Inspecting these elements shows that the image and its
+description text are located within two divs that are both found inside
+one parent div with ID “mainpage-potd”.</p>
+<p><img src="./devtools-potd.png" /></p>
+<p>Since there are slightly different paths to the image and to the
+text, we will grab the parent div as a common element on the way to
+both. The XPath query to this div is:</p>
+<pre><code>//div[@id = &#39;mainpage-potd&#39;]</code></pre>
+<p>From here, we can reach the image and the description text using
+XPath queries relative to this parent div:</p>
+<p>Image:</p>
+<pre><code>./*[1]/a/img</code></pre>
+<p>Description text:</p>
+<pre><code>./*[2]/div</code></pre>
+<p>With the page navigation mapped out, we can now create the web scrape
+Python script.</p>
+<h2 id="creating-the-script">Creating the Script</h2>
+<p>In order to navigate web pages, a web scrape needs to be able to
+create web requests and parse the responses. The two libraries in Python
+that we will use to do this are:</p>
+<ul>
+<li><a
+href="https://docs.python.org/3/library/urllib.request.html">urllib.request</a>
+to handle web requests.</li>
+<li><a href="https://lxml.de/">lxml</a> to parse the received
+webpages.</li>
+</ul>
+<p>If either of these libraries are missing on your machine, install
+them using pip. Otherwise, we will import them at the beginning of our
+script.</p>
+<pre><code>import urllib.request
+import lxml.html</code></pre>
+<p>Next, we will define one reusable function. This function will make a
+request to a given URL and return the response data, which is the raw
+HTML of the webpage.</p>
+<pre><code>def getPageHtml(url):
+    request = urllib.request.Request(url=url)
+    con = urllib.request.urlopen(request)
+    
+    return con.read()</code></pre>
+<p>This function builds a simple GET request for the given URL using the
+<span class="inlineCode">urllib.request.Request</span> class. The <span
+class="inlineCode">urllib.request.urlopen</span> function uses the
+Request object to create the connection to the URL. With this
+connection, we read the response data and return it.</p>
+<p>For clarity and simplicity, the rest of our code will not define any
+additional functions, but rather will be written out from top to
+bottom.</p>
+<p>Our first two goals are to create a connection to Wikipedia’s
+homepage and to navigate to Wikimedia Commons. To start, we will create
+a variable to hold the URL to Wikipedia’s homepage and use it to get the
+page’s raw HTML using our getPageHtml function.</p>
+<pre><code>wikipediaUrl = &#39;https://en.wikipedia.org&#39;
+wikiHomeText = getPageHtml(wikipediaUrl)</code></pre>
+<p>The variable wikiHomeText now stores the raw HTML text of the
+webpage. This is not very useful on its own. Fortunately, the <span
+class="inlineCode">lxml.html</span> package contains the <span
+class="inlineCode">fromstring</span> function that transforms raw HTML
+into a tree structure of objects representing the HTML elements. This
+tree can be parsed with XPath by calling the returned object’s <span
+class="inlineCode">xpath</span> function, which takes an XPath query.
+Here we will use the XPath query to the Wikimedia Commons link that we
+found above.</p>
+<pre><code>wikiHomeTree = lxml.html.fromstring(wikiHomeText)
+links = wikiHomeTree.xpath(&quot;//ul[@id = &#39;sister-projects-list&#39;]/li/div/span/a[contains(text(), &#39;Commons&#39;)]&quot;)
+commonsLink = links[0].get(&#39;href&#39;)</code></pre>
+<p>The <span class="inlineCode">xpath</span> function returns a list of
+matched objects that represent HTML elements. For simplicity, we assume
+that matches were made and that the first object is the Wikimedia
+Commons link element. We then use the <span
+class="inlineCode">get</span> function of that object to retrieve the
+URL of the element’s href attribute.</p>
+<p>From here, we can work on our final two goals of retrieving the
+Picture of the Day’s image link and its description text. Since we now
+have the URL to Wikimedia Commons, we repeat the above steps in order to
+request the Wikimedia Commons homepage and create the tree object
+representing it. Once done, we then make use of the XPath query we found
+earlier that yields the Picture of the Day div.</p>
+<pre><code>commonsPageText = getPageHtml(commonsLink)
+commonsTree = lxml.html.fromstring(commonsPageText)
+
+potdDivs = commonsTree.xpath(&quot;//div[@id = &#39;mainpage-potd&#39;]&quot;)
+potdDiv = potdDivs[0]</code></pre>
+<p>As stated, this div is the parent element containing both the image
+and the description text. Since <span
+class="inlineCode">lxml.html</span> creates a tree structure of all HTML
+elements in a webpage, each element itself can be treated as the root of
+a tree containing its own child elements. Therefore, we are able to use
+the <span class="inlineCode">xpath</span> function of the parent div
+element with our XPath queries from above in order to extract the image
+link and description text.</p>
+<pre><code>potdImageElements = potdDiv.xpath(&quot;./*[1]/a/img&quot;)
+potdImageUrl = potdImageElements[0].get(&quot;src&quot;)
+
+potdTextDivs = potdDiv.xpath(&quot;./*[2]/div&quot;)
+potdText = potdTextDivs[0].text_content()</code></pre>
+<p>The image URL is obtained using the <span
+class="inlineCode">get</span> function again to retrieve the src
+attribute of the img element. To obtain the description text, we use the
+<span class="inlineCode">text_content</span> function. This function
+combines the text content of the immediate element with the text content
+of all its children.</p>
+<p>Though we now have completed all of the goals of this simple web
+scrape, there is one final point worth mentioning regarding automated
+downloads. We could continue and use the <span
+class="inlineCode">urllib.request.urlretrieve</span> function to
+download the image file. However, it is important to remember two things
+when automating downloads:</p>
+<ol type="1">
+<li>Downloads use server resources.</li>
+<li>Hosted content may be copyrighted.</li>
+</ol>
+<p>One ought to respect the bandwidth, resources, and wishes of a
+website regarding bulk downloads. Not all websites have the ability to
+handle large amounts of download requests. Some websites also request
+that web scrapes not be used to access the website. In addition, content
+on a website may be copyrighted, and downloading this material could
+constitute copyright infringement. Therefore, since the Picture of the
+Day image could be copyrighted, this guide will not include usage of the
+<span class="inlineCode">urllib.request.urlretrieve</span> function to
+download the image.</p>
+<h2 id="conclusion">Conclusion</h2>
+<p>You should now have a basic understanding of how to create a simple
+web scrape in Python. The steps we covered included gathering
+information regarding website navigation, creating XPath queries for
+navigation and resource location, using the <span
+class="inlineCode">urllib.request</span> package to retrieve webpages,
+and using the <span class="inlineCode">lxml.html</span> package to parse
+and interact with the HTML elements of a webpage. Though websites differ
+in their complexity, other web scrapes will follow this basic format at
+their core.</p>
+<p><br> <br> Copyright 2023 Chris Webber All Rights Reserved.</p>
+</body>
+</html>
